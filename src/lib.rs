@@ -3,20 +3,21 @@
 //! # Installation
 //!
 //! Install the crate as a dependency in your app's Cargo.toml file:
-//! ```
+//! ```text
 //! [dependencies]
 //! abserde = "0.1.0"
 //! ```
 //!
 //! # Usage
-//! Import Abserde:
+//! Import Abserde, [serde::Serialize], and [serde::Deserialize]:
 //! ```
 //! use abserde::*;
+//! use serde::{Serialize, Deserialize};
 //! ```
 //!
 //! Define a struct to store your app settings/data.
 //! You must derive your struct from [serde::Serialize] and [serde::Deserialize] traits.
-//! ```
+//! ```text
 //! #[derive(Serialize, Deserialize)]
 //! struct MyConfig {
 //! 	window_width: usize,
@@ -29,8 +30,8 @@
 //! ```
 //!
 //! Create an Abserde instance to manage how your configuration is stored on disk:
-//! ```
-//! let abserde = Abserde {
+//! ```text
+//! let my_abserde = Abserde {
 //!		app: "MyApp".to_string(),
 //!		location: Location::Auto,
 //!		format: Format::Json,
@@ -38,18 +39,18 @@
 //! ```
 //!
 //! Load data into a `MyConfig` object:
-//! ```
-//! let my_config = MyConfig::load_config(&abserde);
+//! ```text
+//! let my_config = MyConfig::load_config(&my_abserde);
 //! ```
 //!
 //! Save config to disk:
-//! ```
-//! my_config.save_config(&abserde);
+//! ```text
+//! my_config.save_config(&my_abserde);
 //! ```
 //!
 //! Delete config from disk:
-//! ```
-//! &abserde.delete();
+//! ```text
+//! my_abserde.delete();
 //! ```
 
 #![deny(missing_docs)]

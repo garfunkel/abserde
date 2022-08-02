@@ -1,8 +1,12 @@
 [package]
 name = "abserde"
+description = "Simple platform-agnostic Rust crate for managing application settings/preferences."
 version = "0.1.0"
 edition = "2021"
 authors = ["Simon Allen <simon@simonallen.org>"]
+license = "MIT"
+homepage = "https://github.com/garfunkel/abserde"
+repository = "https://github.com/garfunkel/abserde"
 
 [dependencies]
 dirs = "4.0.0"
