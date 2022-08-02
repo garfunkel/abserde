@@ -1,2 +1,2 @@
 # abserde
-Simple platform-agnostic Rust crate for managing application settings/preferences
+Simple platform-agnostic Rust crate for managing application settings/preferences.

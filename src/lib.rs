@@ -1,56 +1,141 @@
+//! Simple platform-agnostic Rust crate for managing application settings/preferences.
+//!
+//! # Installation
+//!
+//! Install the crate as a dependency in your app's Cargo.toml file:
+//! ```
+//! [dependencies]
+//! abserde = "0.1.0"
+//! ```
+//!
+//! # Usage
+//! Import Abserde:
+//! ```
+//! use abserde::*;
+//! ```
+//!
+//! Define a struct to store your app settings/data.
+//! You must derive your struct from [serde::Serialize] and [serde::Deserialize] traits.
+//! ```
+//! #[derive(Serialize, Deserialize)]
+//! struct MyConfig {
+//! 	window_width: usize,
+//! 	window_height: usize,
+//! 	window_x: usize,
+//! 	window_y: usize,
+//! 	theme: String,
+//! 	user_data: HashMap<String, String>,
+//! }
+//! ```
+//!
+//! Create an Abserde instance to manage how your configuration is stored on disk:
+//! ```
+//! let abserde = Abserde {
+//!		app: "MyApp".to_string(),
+//!		location: Location::Auto,
+//!		format: Format::Json,
+//!	};
+//! ```
+//!
+//! Load data into a `MyConfig` object:
+//! ```
+//! let my_config = MyConfig::load_config(&abserde);
+//! ```
+//!
+//! Save config to disk:
+//! ```
+//! my_config.save_config(&abserde);
+//! ```
+//!
+//! Delete config from disk:
+//! ```
+//! &abserde.delete();
+//! ```
+
+#![deny(missing_docs)]
+
 use std::fs::{create_dir_all, remove_dir, remove_file, File};
 use std::path::PathBuf;
 use std::{error, io, result};
 
-use dirs;
 use serde::{de::DeserializeOwned, Serialize};
 
 const MSG_NO_SYSTEM_CONFIG_DIR: &str = "no system config directory detected";
 
+/// Alias for generic Error type.
 pub type Error = Box<dyn error::Error>;
+
+/// Alias for Result type wrapping generic Error type.
 pub type Result<T> = result::Result<T, Error>;
 
+/// Storage format for app config.
+///
+/// Each format is enabled as a feature. The json feature is included by default.
+/// All other format features are disabled by default.
 #[derive(Debug, PartialEq, Clone)]
 pub enum Format {
+	/// JSON format using the serde_json crate.
 	#[cfg(feature = "json")]
 	Json,
+
+	/// YAML format using the serde_yaml crate.
 	#[cfg(feature = "yaml")]
 	Yaml,
+
+	/// Pickle (Python) format using the serde-pickle crate.
 	#[cfg(feature = "pickle")]
 	Pickle,
+
+	/// INI (Windows) format using the serde_ini crate.
 	#[cfg(feature = "ini")]
 	Ini,
+
+	/// TOML format using the toml crate.
 	#[cfg(feature = "toml")]
 	Toml,
 }
 
 impl Format {
+	/// Return default file name of config file for this format.
 	pub fn default_name(&self) -> String {
 		format!("config.{:?}", self).to_lowercase()
 	}
 }
 
+/// Represents the location of a config file.
 #[derive(Debug, PartialEq, Clone)]
 pub enum Location {
+	/// Automatically determines location of config file based on platform/OS.
 	Auto,
+
+	/// Provides the full path to the config file.
 	Path(String),
+
+	/// Automatically determines config directory, with file name specified manually.
 	File(String),
+
+	/// Automatically determines config file name, with directory specified manually.
 	Dir(String),
 }
 
+/// Represents an Abserde app, specifying how app settings are to be managed.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Abserde {
+	/// App name under which app settings are typically to be stored.
 	pub app: String,
+
+	/// Location specification for where app settings are physically kept.
 	pub location: Location,
+
+	/// Format for app setting storage and serialisation.
 	pub format: Format,
 }
 
 impl Abserde {
+	/// Delete settings file related to this app.
 	pub fn delete(&self) -> Result<()> {
-		let system_config_dir = dirs::config_dir().ok_or(io::Error::new(
-			io::ErrorKind::NotFound,
-			MSG_NO_SYSTEM_CONFIG_DIR,
-		))?;
+		let system_config_dir = dirs::config_dir()
+			.ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, MSG_NO_SYSTEM_CONFIG_DIR))?;
 
 		let config_path = match &self.location {
 			Location::Auto => system_config_dir
@@ -68,10 +153,9 @@ impl Abserde {
 			Location::Dir(_) => {}
 			// Attempt to delete parent folder if it is empty.
 			_ => {
-				let config_dir = config_path.parent().ok_or(io::Error::new(
-					io::ErrorKind::NotFound,
-					MSG_NO_SYSTEM_CONFIG_DIR,
-				))?;
+				let config_dir = config_path.parent().ok_or_else(|| {
+					io::Error::new(io::ErrorKind::NotFound, MSG_NO_SYSTEM_CONFIG_DIR)
+				})?;
 
 				// Ignore any errors here, as they are sometimes expected.
 				_ = remove_dir(config_dir);
@@ -82,14 +166,21 @@ impl Abserde {
 	}
 }
 
+/// Trait that apps can implement to store app settings.
+///
+/// Implementing types must also implement [serde::Serialize] and [serde::Deserialize] traits.
 pub trait Config {
+	/// Type of implementation.
 	type T;
 
+	/// Load a config from disk into the implementing type.
 	fn load_config(abserde: &Abserde) -> Result<Self::T>;
+
+	/// Save a config from the implementing type to disk.
 	fn save_config(&self, abserde: &Abserde) -> Result<()>;
 }
 
-impl<'de, T> Config for T
+impl<T> Config for T
 where
 	T: Serialize,
 	T: DeserializeOwned,
@@ -97,10 +188,8 @@ where
 	type T = T;
 
 	fn load_config(abserde: &Abserde) -> Result<Self::T> {
-		let system_config_dir = dirs::config_dir().ok_or(io::Error::new(
-			io::ErrorKind::NotFound,
-			MSG_NO_SYSTEM_CONFIG_DIR,
-		))?;
+		let system_config_dir = dirs::config_dir()
+			.ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, MSG_NO_SYSTEM_CONFIG_DIR))?;
 
 		let config_path = match &abserde.location {
 			Location::Auto => system_config_dir
@@ -151,10 +240,8 @@ where
 	}
 
 	fn save_config(&self, abserde: &Abserde) -> Result<()> {
-		let system_config_dir = dirs::config_dir().ok_or(io::Error::new(
-			io::ErrorKind::NotFound,
-			MSG_NO_SYSTEM_CONFIG_DIR,
-		))?;
+		let system_config_dir = dirs::config_dir()
+			.ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, MSG_NO_SYSTEM_CONFIG_DIR))?;
 
 		let config_path = match &abserde.location {
 			Location::Auto => system_config_dir
@@ -165,10 +252,9 @@ where
 			Location::File(file) => system_config_dir.join(&abserde.app).join(file),
 		};
 
-		let config_dir = config_path.parent().ok_or(io::Error::new(
-			io::ErrorKind::NotFound,
-			MSG_NO_SYSTEM_CONFIG_DIR,
-		))?;
+		let config_dir = config_path
+			.parent()
+			.ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, MSG_NO_SYSTEM_CONFIG_DIR))?;
 
 		create_dir_all(config_dir)?;
 
@@ -217,6 +303,7 @@ mod tests {
 
 	const APP_NAME: &str = "rust_prefs_test";
 
+	// Test config type for serialisation formats that only accept basic types.
 	#[derive(Serialize, Deserialize, Debug, Default, Dummy, PartialEq)]
 	struct TestConfigSimple {
 		string_val: String,
@@ -229,6 +316,7 @@ mod tests {
 		f32_val: f32,
 	}
 
+	// More complex config type for serialisation formats that support advanced types.
 	#[derive(Serialize, Deserialize, Debug, Default, Dummy, PartialEq)]
 	struct TestConfigComplex {
 		string_val: String,
@@ -253,6 +341,7 @@ mod tests {
 		hash_map_4_val: HashMap<String, (f64, f32, i8)>,
 	}
 
+	// Generic dispatch method.
 	fn test_save_load<T>(abserde: &Abserde)
 	where
 		T: Serialize,
