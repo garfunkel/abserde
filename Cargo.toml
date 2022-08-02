@@ -7,6 +7,8 @@ authors = ["Simon Allen <simon@simonallen.org>"]
 license = "MIT"
 homepage = "https://github.com/garfunkel/abserde"
 repository = "https://github.com/garfunkel/abserde"
+keywords = ["settings", "preferences", "config", "options", "serde"]
+categories = ["config"]
 
 [dependencies]
 dirs = "4.0.0"
