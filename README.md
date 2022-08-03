@@ -1,2 +1,70 @@
 # abserde
+
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/garfunkel/abserde/Rust)
+![Crates.io](https://img.shields.io/crates/d/abserde)
+![docs.rs](https://img.shields.io/docsrs/abserde)
+
 Simple platform-agnostic Rust crate for managing application settings/preferences.
+
+## Installation
+
+Install the crate as a dependency in your app's Cargo.toml file:
+
+```toml
+[dependencies]
+abserde = "0.1.0"
+```
+
+## Usage
+
+Import [Abserde](https://docs.rs/abserde/latest/abserde/struct.Abserde.html), associated definitions, and [serde::Serialize](https://docs.rs/serde/latest/serde/trait.Serialize.html), and [serde::Deserialize](https://docs.rs/serde/latest/serde/trait.Deserialize.html):
+
+```rust
+use abserde::*;
+use serde::{Serialize, Deserialize};
+```
+
+Define a struct to store your app config.
+You must derive your struct from [serde::Serialize](https://docs.rs/serde/latest/serde/trait.Serialize.html) and [serde::Deserialize](https://docs.rs/serde/latest/serde/trait.Deserialize.html) traits.
+
+```rust
+use std::collections::HashMap;
+
+#[derive(Serialize, Deserialize)]
+struct MyConfig {
+	window_width: usize,
+	window_height: usize,
+	window_x: usize,
+	window_y: usize,
+	theme: String,
+	user_data: HashMap<String, String>,
+}
+```
+
+Create an [Abserde](https://docs.rs/abserde/latest/abserde/struct.Abserde.html) instance to manage how your configuration is stored on disk:
+
+```rust
+let my_abserde = Abserde {
+	app: "MyApp".to_string(),
+	location: Location::Auto,
+	format: Format::Json,
+};
+```
+
+Load data into config from disk:
+
+```rust
+let my_config = MyConfig::load_config(&my_abserde)?;
+```
+
+Save config data to disk:
+
+```rust
+my_config.save_config(&my_abserde)?;
+```
+
+Delete config file from disk:
+
+```rust
+my_abserde.delete()?;
+```

@@ -4,7 +4,7 @@
 //!
 //! Install the crate as a dependency in your app's Cargo.toml file:
 //!
-//! ```markdown
+//! ```toml
 //! [dependencies]
 //! abserde = "0.1.0"
 //! ```
@@ -21,8 +21,8 @@
 //! You must derive your struct from [serde::Serialize] and [serde::Deserialize] traits.
 //!
 //! ```no_run
-//! # use std::collections::HashMap;
-//! #
+//! use std::collections::HashMap;
+//!
 //! # use serde::{Serialize, Deserialize};
 //! #
 //! #[derive(Serialize, Deserialize)]
@@ -47,10 +47,10 @@
 //! # struct MyConfig;
 //! #
 //! let my_abserde = Abserde {
-//!		app: "MyApp".to_string(),
-//!		location: Location::Auto,
-//!		format: Format::Json,
-//!	};
+//! 	app: "MyApp".to_string(),
+//! 	location: Location::Auto,
+//! 	format: Format::Json,
+//! };
 //! ```
 //!
 //! Load data into config from disk:
@@ -64,10 +64,10 @@
 //! # struct MyConfig;
 //! #
 //! # let my_abserde = Abserde {
-//!	# 	app: "MyApp".to_string(),
-//!	# 	location: Location::Auto,
-//!	# 	format: Format::Json,
-//!	# };
+//! # 	app: "MyApp".to_string(),
+//! # 	location: Location::Auto,
+//! # 	format: Format::Json,
+//! # };
 //! #
 //! let my_config = MyConfig::load_config(&my_abserde)?;
 //! #
@@ -85,10 +85,10 @@
 //! # struct MyConfig;
 //! #
 //! # let my_abserde = Abserde {
-//!	# 	app: "MyApp".to_string(),
-//!	# 	location: Location::Auto,
-//!	# 	format: Format::Json,
-//!	# };
+//! # 	app: "MyApp".to_string(),
+//! # 	location: Location::Auto,
+//! # 	format: Format::Json,
+//! # };
 //! #
 //! # let my_config = MyConfig::load_config(&my_abserde)?;
 //! my_config.save_config(&my_abserde)?;
@@ -107,10 +107,10 @@
 //! # struct MyConfig;
 //! #
 //! # let my_abserde = Abserde {
-//!	# 	app: "MyApp".to_string(),
-//!	# 	location: Location::Auto,
-//!	# 	format: Format::Json,
-//!	# };
+//! # 	app: "MyApp".to_string(),
+//! # 	location: Location::Auto,
+//! # 	format: Format::Json,
+//! # };
 //! #
 //! # let my_config = MyConfig::load_config(&my_abserde)?;
 //! # my_config.save_config(&my_abserde)?;
