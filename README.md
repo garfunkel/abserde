@@ -1,8 +1,9 @@
 # abserde
 
-[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/garfunkel/abserde/Rust)](https://github.com/garfunkel/abserde/actions/workflows/rust.yml)
+[![Crates.io](https://img.shields.io/crates/v/abserde)](https://crates.io/crates/abserde)
 [![Crates.io](https://img.shields.io/crates/d/abserde)](https://crates.io/crates/abserde)
 [![Crates.io](https://img.shields.io/crates/l/abserde)](https://crates.io/crates/abserde)
+[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/garfunkel/abserde/Rust)](https://github.com/garfunkel/abserde/actions/workflows/rust.yml)
 [![docs.rs](https://img.shields.io/docsrs/abserde)](https://docs.rs/abserde/latest/abserde)
 
 Simple platform-agnostic Rust crate for managing application settings/preferences.
@@ -13,7 +14,7 @@ Install the crate as a dependency in your app's Cargo.toml file:
 
 ```toml
 [dependencies]
-abserde = "0.1.0"
+abserde = "0.3.2"
 ```
 
 ## Usage
