@@ -346,10 +346,10 @@ where
 mod tests {
 	use std::collections::HashMap;
 	use std::fmt::Debug;
-	use tempfile::{NamedTempFile, TempDir};
 
 	use fake::{Dummy, Fake, Faker};
 	use serde::{de::DeserializeOwned, Deserialize, Serialize};
+	use tempfile::{NamedTempFile, TempDir};
 
 	use crate::{Abserde, Config, Format, Location};
 
