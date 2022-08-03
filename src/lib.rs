@@ -3,21 +3,28 @@
 //! # Installation
 //!
 //! Install the crate as a dependency in your app's Cargo.toml file:
-//! ```text
+//!
+//! ```markdown
 //! [dependencies]
 //! abserde = "0.1.0"
 //! ```
 //!
 //! # Usage
-//! Import Abserde, [serde::Serialize], and [serde::Deserialize]:
-//! ```
+//! Import [Abserde], associated definitions, and [serde::Serialize], and [serde::Deserialize]:
+//!
+//! ```no_run
 //! use abserde::*;
 //! use serde::{Serialize, Deserialize};
 //! ```
 //!
-//! Define a struct to store your app settings/data.
+//! Define a struct to store your app config.
 //! You must derive your struct from [serde::Serialize] and [serde::Deserialize] traits.
-//! ```text
+//!
+//! ```no_run
+//! # use std::collections::HashMap;
+//! #
+//! # use serde::{Serialize, Deserialize};
+//! #
 //! #[derive(Serialize, Deserialize)]
 //! struct MyConfig {
 //! 	window_width: usize,
@@ -29,8 +36,16 @@
 //! }
 //! ```
 //!
-//! Create an Abserde instance to manage how your configuration is stored on disk:
-//! ```text
+//! Create an [Abserde] instance to manage how your configuration is stored on disk:
+//!
+//! ```no_run
+//! # use serde::{Serialize, Deserialize};
+//! #
+//! # use abserde::*;
+//! #
+//! # #[derive(Serialize, Deserialize)]
+//! # struct MyConfig;
+//! #
 //! let my_abserde = Abserde {
 //!		app: "MyApp".to_string(),
 //!		location: Location::Auto,
@@ -38,19 +53,71 @@
 //!	};
 //! ```
 //!
-//! Load data into a `MyConfig` object:
-//! ```text
-//! let my_config = MyConfig::load_config(&my_abserde);
+//! Load data into config from disk:
+//!
+//! ```no_run
+//! # use serde::{Serialize, Deserialize};
+//! #
+//! # use abserde::*;
+//! #
+//! # #[derive(Serialize, Deserialize)]
+//! # struct MyConfig;
+//! #
+//! # let my_abserde = Abserde {
+//!	# 	app: "MyApp".to_string(),
+//!	# 	location: Location::Auto,
+//!	# 	format: Format::Json,
+//!	# };
+//! #
+//! let my_config = MyConfig::load_config(&my_abserde)?;
+//! #
+//! # Ok::<(), Error>(())
 //! ```
 //!
-//! Save config to disk:
-//! ```text
-//! my_config.save_config(&my_abserde);
+//! Save config data to disk:
+//!
+//! ```no_run
+//! # use serde::{Serialize, Deserialize};
+//! #
+//! # use abserde::*;
+//! #
+//! # #[derive(Serialize, Deserialize)]
+//! # struct MyConfig;
+//! #
+//! # let my_abserde = Abserde {
+//!	# 	app: "MyApp".to_string(),
+//!	# 	location: Location::Auto,
+//!	# 	format: Format::Json,
+//!	# };
+//! #
+//! # let my_config = MyConfig::load_config(&my_abserde)?;
+//! my_config.save_config(&my_abserde)?;
+//! #
+//! # Ok::<(), Error>(())
 //! ```
 //!
-//! Delete config from disk:
-//! ```text
-//! my_abserde.delete();
+//! Delete config file from disk:
+//!
+//! ```no_run
+//! # use serde::{Serialize, Deserialize};
+//! #
+//! # use abserde::*;
+//! #
+//! # #[derive(Serialize, Deserialize)]
+//! # struct MyConfig;
+//! #
+//! # let my_abserde = Abserde {
+//!	# 	app: "MyApp".to_string(),
+//!	# 	location: Location::Auto,
+//!	# 	format: Format::Json,
+//!	# };
+//! #
+//! # let my_config = MyConfig::load_config(&my_abserde)?;
+//! # my_config.save_config(&my_abserde)?;
+//! #
+//! my_abserde.delete()?;
+//!
+//! # Ok::<(), Error>(())
 //! ```
 
 #![deny(missing_docs)]
@@ -133,19 +200,23 @@ pub struct Abserde {
 }
 
 impl Abserde {
-	/// Delete settings file related to this app.
-	pub fn delete(&self) -> Result<()> {
+	fn config_path(&self) -> Result<PathBuf> {
 		let system_config_dir = dirs::config_dir()
 			.ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, MSG_NO_SYSTEM_CONFIG_DIR))?;
 
-		let config_path = match &self.location {
+		Ok(match &self.location {
 			Location::Auto => system_config_dir
 				.join(&self.app)
 				.join(&self.format.default_name()),
 			Location::Path(path) => PathBuf::from(path),
 			Location::Dir(dir) => PathBuf::from(dir).join(&self.format.default_name()),
 			Location::File(file) => system_config_dir.join(&self.app).join(file),
-		};
+		})
+	}
+
+	/// Delete settings file related to this app.
+	pub fn delete(&self) -> Result<()> {
+		let config_path = self.config_path()?;
 
 		remove_file(&config_path)?;
 
@@ -189,17 +260,7 @@ where
 	type T = T;
 
 	fn load_config(abserde: &Abserde) -> Result<Self::T> {
-		let system_config_dir = dirs::config_dir()
-			.ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, MSG_NO_SYSTEM_CONFIG_DIR))?;
-
-		let config_path = match &abserde.location {
-			Location::Auto => system_config_dir
-				.join(&abserde.app)
-				.join(&abserde.format.default_name()),
-			Location::Path(path) => PathBuf::from(path),
-			Location::Dir(dir) => PathBuf::from(dir).join(&abserde.format.default_name()),
-			Location::File(file) => system_config_dir.join(&abserde.app).join(file),
-		};
+		let config_path = abserde.config_path()?;
 
 		Ok(match abserde.format {
 			#[cfg(feature = "json")]
@@ -241,18 +302,7 @@ where
 	}
 
 	fn save_config(&self, abserde: &Abserde) -> Result<()> {
-		let system_config_dir = dirs::config_dir()
-			.ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, MSG_NO_SYSTEM_CONFIG_DIR))?;
-
-		let config_path = match &abserde.location {
-			Location::Auto => system_config_dir
-				.join(&abserde.app)
-				.join(&abserde.format.default_name()),
-			Location::Path(path) => PathBuf::from(path),
-			Location::Dir(dir) => PathBuf::from(dir).join(&abserde.format.default_name()),
-			Location::File(file) => system_config_dir.join(&abserde.app).join(file),
-		};
-
+		let config_path = abserde.config_path()?;
 		let config_dir = config_path
 			.parent()
 			.ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, MSG_NO_SYSTEM_CONFIG_DIR))?;
@@ -296,6 +346,7 @@ where
 mod tests {
 	use std::collections::HashMap;
 	use std::fmt::Debug;
+	use tempfile::{NamedTempFile, TempDir};
 
 	use fake::{Dummy, Fake, Faker};
 	use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -343,7 +394,7 @@ mod tests {
 	}
 
 	// Generic dispatch method.
-	fn test_save_load<T>(abserde: &Abserde)
+	fn test_save_load_delete<T>(abserde: &Abserde)
 	where
 		T: Serialize,
 		T: DeserializeOwned,
@@ -364,50 +415,220 @@ mod tests {
 
 	#[cfg(feature = "json")]
 	#[test]
-	fn test_save_load_json() {
-		test_save_load::<TestConfigComplex>(&Abserde {
+	fn test_json_auto() {
+		test_save_load_delete::<TestConfigComplex>(&Abserde {
 			app: APP_NAME.to_string(),
 			location: Location::Auto,
 			format: Format::Json,
 		});
 	}
 
+	#[cfg(feature = "json")]
+	#[test]
+	fn test_json_path() {
+		let tmp_file = NamedTempFile::new().unwrap();
+
+		test_save_load_delete::<TestConfigComplex>(&Abserde {
+			app: APP_NAME.to_string(),
+			location: Location::Path(tmp_file.path().to_str().unwrap().to_string()),
+			format: Format::Json,
+		});
+	}
+
+	#[cfg(feature = "json")]
+	#[test]
+	fn test_json_file() {
+		test_save_load_delete::<TestConfigComplex>(&Abserde {
+			app: APP_NAME.to_string(),
+			location: Location::File("custom_file.json".to_string()),
+			format: Format::Json,
+		});
+	}
+
+	#[cfg(feature = "json")]
+	#[test]
+	fn test_json_dir() {
+		let tmp_dir = TempDir::new().unwrap();
+
+		test_save_load_delete::<TestConfigComplex>(&Abserde {
+			app: APP_NAME.to_string(),
+			location: Location::Dir(tmp_dir.path().to_str().unwrap().to_string()),
+			format: Format::Json,
+		});
+	}
+
 	#[cfg(feature = "yaml")]
 	#[test]
-	fn test_save_load_yaml() {
-		test_save_load::<TestConfigComplex>(&Abserde {
+	fn test_yaml_auto() {
+		test_save_load_delete::<TestConfigComplex>(&Abserde {
 			app: APP_NAME.to_string(),
 			location: Location::Auto,
 			format: Format::Yaml,
 		});
 	}
 
+	#[cfg(feature = "yaml")]
+	#[test]
+	fn test_yaml_path() {
+		let tmp_file = NamedTempFile::new().unwrap();
+
+		test_save_load_delete::<TestConfigComplex>(&Abserde {
+			app: APP_NAME.to_string(),
+			location: Location::Path(tmp_file.path().to_str().unwrap().to_string()),
+			format: Format::Yaml,
+		});
+	}
+
+	#[cfg(feature = "yaml")]
+	#[test]
+	fn test_yaml_file() {
+		test_save_load_delete::<TestConfigComplex>(&Abserde {
+			app: APP_NAME.to_string(),
+			location: Location::File("custom_file.yaml".to_string()),
+			format: Format::Yaml,
+		});
+	}
+
+	#[cfg(feature = "yaml")]
+	#[test]
+	fn test_yaml_dir() {
+		let tmp_dir = TempDir::new().unwrap();
+
+		test_save_load_delete::<TestConfigComplex>(&Abserde {
+			app: APP_NAME.to_string(),
+			location: Location::Dir(tmp_dir.path().to_str().unwrap().to_string()),
+			format: Format::Yaml,
+		});
+	}
+
 	#[cfg(feature = "pickle")]
 	#[test]
-	fn test_save_load_pickle() {
-		test_save_load::<TestConfigSimple>(&Abserde {
+	fn test_pickle_auto() {
+		test_save_load_delete::<TestConfigSimple>(&Abserde {
 			app: APP_NAME.to_string(),
 			location: Location::Auto,
 			format: Format::Pickle,
 		});
 	}
 
+	#[cfg(feature = "pickle")]
+	#[test]
+	fn test_pickle_path() {
+		let tmp_file = NamedTempFile::new().unwrap();
+
+		test_save_load_delete::<TestConfigSimple>(&Abserde {
+			app: APP_NAME.to_string(),
+			location: Location::Path(tmp_file.path().to_str().unwrap().to_string()),
+			format: Format::Pickle,
+		});
+	}
+
+	#[cfg(feature = "pickle")]
+	#[test]
+	fn test_pickle_file() {
+		test_save_load_delete::<TestConfigSimple>(&Abserde {
+			app: APP_NAME.to_string(),
+			location: Location::File("custom_file.pickle".to_string()),
+			format: Format::Pickle,
+		});
+	}
+
+	#[cfg(feature = "pickle")]
+	#[test]
+	fn test_pickle_dir() {
+		let tmp_dir = TempDir::new().unwrap();
+
+		test_save_load_delete::<TestConfigSimple>(&Abserde {
+			app: APP_NAME.to_string(),
+			location: Location::Dir(tmp_dir.path().to_str().unwrap().to_string()),
+			format: Format::Pickle,
+		});
+	}
+
 	#[cfg(feature = "ini")]
 	#[test]
-	fn test_save_load_ini() {
-		test_save_load::<TestConfigSimple>(&Abserde {
+	fn test_ini_auto() {
+		test_save_load_delete::<TestConfigSimple>(&Abserde {
 			app: APP_NAME.to_string(),
 			location: Location::Auto,
 			format: Format::Ini,
 		});
 	}
 
+	#[cfg(feature = "ini")]
+	#[test]
+	fn test_ini_path() {
+		let tmp_file = NamedTempFile::new().unwrap();
+
+		test_save_load_delete::<TestConfigSimple>(&Abserde {
+			app: APP_NAME.to_string(),
+			location: Location::Path(tmp_file.path().to_str().unwrap().to_string()),
+			format: Format::Ini,
+		});
+	}
+
+	#[cfg(feature = "ini")]
+	#[test]
+	fn test_ini_file() {
+		test_save_load_delete::<TestConfigSimple>(&Abserde {
+			app: APP_NAME.to_string(),
+			location: Location::File("custom_file.ini".to_string()),
+			format: Format::Ini,
+		});
+	}
+
+	#[cfg(feature = "ini")]
+	#[test]
+	fn test_ini_dir() {
+		let tmp_dir = TempDir::new().unwrap();
+
+		test_save_load_delete::<TestConfigSimple>(&Abserde {
+			app: APP_NAME.to_string(),
+			location: Location::Dir(tmp_dir.path().to_str().unwrap().to_string()),
+			format: Format::Ini,
+		});
+	}
+
 	#[cfg(feature = "toml")]
 	#[test]
-	fn test_save_load_toml() {
-		test_save_load::<TestConfigSimple>(&Abserde {
+	fn test_toml_auto() {
+		test_save_load_delete::<TestConfigSimple>(&Abserde {
 			app: APP_NAME.to_string(),
 			location: Location::Auto,
+			format: Format::Toml,
+		});
+	}
+
+	#[cfg(feature = "toml")]
+	#[test]
+	fn test_toml_path() {
+		let tmp_file = NamedTempFile::new().unwrap();
+
+		test_save_load_delete::<TestConfigSimple>(&Abserde {
+			app: APP_NAME.to_string(),
+			location: Location::Path(tmp_file.path().to_str().unwrap().to_string()),
+			format: Format::Toml,
+		});
+	}
+
+	#[cfg(feature = "toml")]
+	#[test]
+	fn test_toml_file() {
+		test_save_load_delete::<TestConfigSimple>(&Abserde {
+			app: APP_NAME.to_string(),
+			location: Location::File("custom_file.toml".to_string()),
+			format: Format::Toml,
+		});
+	}
+
+	#[cfg(feature = "toml")]
+	#[test]
+	fn test_toml_dir() {
+		let tmp_dir = TempDir::new().unwrap();
+
+		test_save_load_delete::<TestConfigSimple>(&Abserde {
+			app: APP_NAME.to_string(),
+			location: Location::Dir(tmp_dir.path().to_str().unwrap().to_string()),
 			format: Format::Toml,
 		});
 	}
