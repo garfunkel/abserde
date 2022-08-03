@@ -1,8 +1,9 @@
 # abserde
 
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/garfunkel/abserde/Rust)
-![Crates.io](https://img.shields.io/crates/d/abserde)
-![docs.rs](https://img.shields.io/docsrs/abserde)
+[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/garfunkel/abserde/Rust)](https://github.com/garfunkel/abserde/actions/workflows/rust.yml)
+[![Crates.io](https://img.shields.io/crates/d/abserde)](https://crates.io/crates/abserde)
+[![Crates.io](https://img.shields.io/crates/l/abserde)](https://crates.io/crates/abserde)
+[![docs.rs](https://img.shields.io/docsrs/abserde)](https://docs.rs/abserde/latest/abserde)
 
 Simple platform-agnostic Rust crate for managing application settings/preferences.
 
