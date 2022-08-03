@@ -6,7 +6,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! abserde = "0.1.0"
+//! abserde = "0.3.3"
 //! ```
 //!
 //! # Usage
