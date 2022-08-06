@@ -14,7 +14,7 @@ Install the crate as a dependency in your app's Cargo.toml file:
 
 ```toml
 [dependencies]
-abserde = "0.4.0"
+abserde = "0.4.1"
 ```
 
 ## Usage
@@ -45,7 +45,7 @@ struct MyConfig {
 
 Create an [Abserde](https://docs.rs/abserde/latest/abserde/struct.Abserde.html) instance to manage how your configuration is stored on disk:
 
-```no_run
+```rust
 let my_abserde = Abserde::default();
 ```
 
