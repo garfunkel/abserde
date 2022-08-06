@@ -6,7 +6,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! abserde = "0.3.3"
+//! abserde = "0.4.0"
 //! ```
 //!
 //! # Usage
@@ -37,6 +37,21 @@
 //! ```
 //!
 //! Create an [Abserde] instance to manage how your configuration is stored on disk:
+//!
+//! ```no_run
+//! # use serde::{Serialize, Deserialize};
+//! #
+//! # use abserde::*;
+//! #
+//! # #[derive(Serialize, Deserialize)]
+//! # struct MyConfig;
+//! #
+//! let my_abserde = Abserde::default();
+//! ```
+//!
+//! Using [Abserde] in this way will use your crate as the name for the app config directory.
+//!
+//! Alternatively, you can also pass options to [Abserde] to change the location or format of your config file:
 //!
 //! ```no_run
 //! # use serde::{Serialize, Deserialize};
@@ -121,7 +136,9 @@
 //! ```
 
 #![deny(missing_docs)]
+#![allow(clippy::tabs_in_doc_comments)]
 
+use std::env::var;
 use std::fs::{create_dir_all, remove_dir, remove_file, File};
 use std::path::PathBuf;
 use std::{error, io, result};
@@ -140,8 +157,11 @@ pub type Result<T> = result::Result<T, Error>;
 ///
 /// Each format is enabled as a feature. The json feature is included by default.
 /// All other format features are disabled by default.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub enum Format {
+	// Default will become the first supported in order of preference.
+	#[default]
+
 	/// JSON format using the serde_json crate.
 	#[cfg(feature = "json")]
 	Json,
@@ -171,19 +191,20 @@ impl Format {
 }
 
 /// Represents the location of a config file.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub enum Location {
 	/// Automatically determines location of config file based on platform/OS.
+	#[default]
 	Auto,
 
 	/// Provides the full path to the config file.
-	Path(String),
+	Path(PathBuf),
 
 	/// Automatically determines config directory, with file name specified manually.
-	File(String),
+	File(PathBuf),
 
 	/// Automatically determines config file name, with directory specified manually.
-	Dir(String),
+	Dir(PathBuf),
 }
 
 /// Represents an Abserde app, specifying how app settings are to be managed.
@@ -208,8 +229,8 @@ impl Abserde {
 			Location::Auto => system_config_dir
 				.join(&self.app)
 				.join(&self.format.default_name()),
-			Location::Path(path) => PathBuf::from(path),
-			Location::Dir(dir) => PathBuf::from(dir).join(&self.format.default_name()),
+			Location::Path(path) => path.clone(),
+			Location::Dir(dir) => dir.join(&self.format.default_name()),
 			Location::File(file) => system_config_dir.join(&self.app).join(file),
 		})
 	}
@@ -235,6 +256,16 @@ impl Abserde {
 		}
 
 		Ok(())
+	}
+}
+
+impl Default for Abserde {
+	fn default() -> Self {
+		Self {
+			app: var("CARGO_PKG_NAME").unwrap_or_else(|_| env!("CARGO_PKG_NAME").to_string()),
+			location: Default::default(),
+			format: Default::default(),
+		}
 	}
 }
 
@@ -349,6 +380,7 @@ mod tests {
 
 	use fake::{Dummy, Fake, Faker};
 	use serde::{de::DeserializeOwned, Deserialize, Serialize};
+	use serial_test::serial;
 	use tempfile::{NamedTempFile, TempDir};
 
 	use crate::{Abserde, Config, Format, Location};
@@ -413,8 +445,15 @@ mod tests {
 		abserde.delete().unwrap();
 	}
 
+	#[test]
+	#[serial]
+	fn test_auto() {
+		test_save_load_delete::<TestConfigSimple>(&Abserde::default());
+	}
+
 	#[cfg(feature = "json")]
 	#[test]
+	#[serial]
 	fn test_json_auto() {
 		test_save_load_delete::<TestConfigComplex>(&Abserde {
 			app: APP_NAME.to_string(),
@@ -430,17 +469,18 @@ mod tests {
 
 		test_save_load_delete::<TestConfigComplex>(&Abserde {
 			app: APP_NAME.to_string(),
-			location: Location::Path(tmp_file.path().to_str().unwrap().to_string()),
+			location: Location::Path(tmp_file.path().into()),
 			format: Format::Json,
 		});
 	}
 
 	#[cfg(feature = "json")]
 	#[test]
+	#[serial]
 	fn test_json_file() {
 		test_save_load_delete::<TestConfigComplex>(&Abserde {
 			app: APP_NAME.to_string(),
-			location: Location::File("custom_file.json".to_string()),
+			location: Location::File("custom_file.json".into()),
 			format: Format::Json,
 		});
 	}
@@ -452,13 +492,14 @@ mod tests {
 
 		test_save_load_delete::<TestConfigComplex>(&Abserde {
 			app: APP_NAME.to_string(),
-			location: Location::Dir(tmp_dir.path().to_str().unwrap().to_string()),
+			location: Location::Dir(tmp_dir.path().into()),
 			format: Format::Json,
 		});
 	}
 
 	#[cfg(feature = "yaml")]
 	#[test]
+	#[serial]
 	fn test_yaml_auto() {
 		test_save_load_delete::<TestConfigComplex>(&Abserde {
 			app: APP_NAME.to_string(),
@@ -474,17 +515,18 @@ mod tests {
 
 		test_save_load_delete::<TestConfigComplex>(&Abserde {
 			app: APP_NAME.to_string(),
-			location: Location::Path(tmp_file.path().to_str().unwrap().to_string()),
+			location: Location::Path(tmp_file.path().into()),
 			format: Format::Yaml,
 		});
 	}
 
 	#[cfg(feature = "yaml")]
 	#[test]
+	#[serial]
 	fn test_yaml_file() {
 		test_save_load_delete::<TestConfigComplex>(&Abserde {
 			app: APP_NAME.to_string(),
-			location: Location::File("custom_file.yaml".to_string()),
+			location: Location::File("custom_file.yaml".into()),
 			format: Format::Yaml,
 		});
 	}
@@ -496,13 +538,14 @@ mod tests {
 
 		test_save_load_delete::<TestConfigComplex>(&Abserde {
 			app: APP_NAME.to_string(),
-			location: Location::Dir(tmp_dir.path().to_str().unwrap().to_string()),
+			location: Location::Dir(tmp_dir.path().into()),
 			format: Format::Yaml,
 		});
 	}
 
 	#[cfg(feature = "pickle")]
 	#[test]
+	#[serial]
 	fn test_pickle_auto() {
 		test_save_load_delete::<TestConfigSimple>(&Abserde {
 			app: APP_NAME.to_string(),
@@ -518,17 +561,18 @@ mod tests {
 
 		test_save_load_delete::<TestConfigSimple>(&Abserde {
 			app: APP_NAME.to_string(),
-			location: Location::Path(tmp_file.path().to_str().unwrap().to_string()),
+			location: Location::Path(tmp_file.path().into()),
 			format: Format::Pickle,
 		});
 	}
 
 	#[cfg(feature = "pickle")]
 	#[test]
+	#[serial]
 	fn test_pickle_file() {
 		test_save_load_delete::<TestConfigSimple>(&Abserde {
 			app: APP_NAME.to_string(),
-			location: Location::File("custom_file.pickle".to_string()),
+			location: Location::File("custom_file.pickle".into()),
 			format: Format::Pickle,
 		});
 	}
@@ -540,13 +584,14 @@ mod tests {
 
 		test_save_load_delete::<TestConfigSimple>(&Abserde {
 			app: APP_NAME.to_string(),
-			location: Location::Dir(tmp_dir.path().to_str().unwrap().to_string()),
+			location: Location::Dir(tmp_dir.path().into()),
 			format: Format::Pickle,
 		});
 	}
 
 	#[cfg(feature = "ini")]
 	#[test]
+	#[serial]
 	fn test_ini_auto() {
 		test_save_load_delete::<TestConfigSimple>(&Abserde {
 			app: APP_NAME.to_string(),
@@ -562,17 +607,18 @@ mod tests {
 
 		test_save_load_delete::<TestConfigSimple>(&Abserde {
 			app: APP_NAME.to_string(),
-			location: Location::Path(tmp_file.path().to_str().unwrap().to_string()),
+			location: Location::Path(tmp_file.path().into()),
 			format: Format::Ini,
 		});
 	}
 
 	#[cfg(feature = "ini")]
 	#[test]
+	#[serial]
 	fn test_ini_file() {
 		test_save_load_delete::<TestConfigSimple>(&Abserde {
 			app: APP_NAME.to_string(),
-			location: Location::File("custom_file.ini".to_string()),
+			location: Location::File("custom_file.ini".into()),
 			format: Format::Ini,
 		});
 	}
@@ -584,13 +630,14 @@ mod tests {
 
 		test_save_load_delete::<TestConfigSimple>(&Abserde {
 			app: APP_NAME.to_string(),
-			location: Location::Dir(tmp_dir.path().to_str().unwrap().to_string()),
+			location: Location::Dir(tmp_dir.path().into()),
 			format: Format::Ini,
 		});
 	}
 
 	#[cfg(feature = "toml")]
 	#[test]
+	#[serial]
 	fn test_toml_auto() {
 		test_save_load_delete::<TestConfigSimple>(&Abserde {
 			app: APP_NAME.to_string(),
@@ -606,17 +653,18 @@ mod tests {
 
 		test_save_load_delete::<TestConfigSimple>(&Abserde {
 			app: APP_NAME.to_string(),
-			location: Location::Path(tmp_file.path().to_str().unwrap().to_string()),
+			location: Location::Path(tmp_file.path().into()),
 			format: Format::Toml,
 		});
 	}
 
 	#[cfg(feature = "toml")]
 	#[test]
+	#[serial]
 	fn test_toml_file() {
 		test_save_load_delete::<TestConfigSimple>(&Abserde {
 			app: APP_NAME.to_string(),
-			location: Location::File("custom_file.toml".to_string()),
+			location: Location::File("custom_file.toml".into()),
 			format: Format::Toml,
 		});
 	}
@@ -628,7 +676,7 @@ mod tests {
 
 		test_save_load_delete::<TestConfigSimple>(&Abserde {
 			app: APP_NAME.to_string(),
-			location: Location::Dir(tmp_dir.path().to_str().unwrap().to_string()),
+			location: Location::Dir(tmp_dir.path().into()),
 			format: Format::Toml,
 		});
 	}
