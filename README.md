@@ -14,7 +14,7 @@ Install the crate as a dependency in your app's Cargo.toml file:
 
 ```toml
 [dependencies]
-abserde = "0.5.0"
+abserde = "0.5.1"
 ```
 
 ## Usage

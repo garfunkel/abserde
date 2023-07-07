@@ -6,7 +6,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! abserde = "0.5.0"
+//! abserde = "0.5.1"
 //! ```
 //!
 //! # Usage
@@ -417,7 +417,7 @@ where
 				let mut ser = serde_json::Serializer::with_formatter(&mut buf, formatter);
 				self.serialize(&mut ser).unwrap();
 
-				write!(File::create(&config_path)?, "{}", String::from_utf8(buf)?)?;
+				write!(File::create(&config_path)?, "{}\n", String::from_utf8(buf)?)?;
 			}
 			#[cfg(feature = "yaml")]
 			Format::Yaml => {
