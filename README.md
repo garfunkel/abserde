@@ -14,7 +14,7 @@ Install the crate as a dependency in your app's Cargo.toml file:
 
 ```toml
 [dependencies]
-abserde = "0.4.1"
+abserde = "0.5.0"
 ```
 
 ## Usage
@@ -58,6 +58,24 @@ let my_abserde = Abserde {
 	app: "MyApp".to_string(),
 	location: Location::Auto,
 	format: Format::Json,
+};
+```
+
+//! For the JSON format, you can pretty-print your config file, using either tabs or spaces:
+
+```rust
+let my_abserde = Abserde {
+	app: "MyApp".to_string(),
+	location: Location::Auto,
+	format: Format::PrettyJson(PrettyJsonIndent::Tab),
+};
+```
+
+```rust
+let my_abserde = Abserde {
+	app: "MyApp".to_string(),
+	location: Location::Auto,
+	format: Format::PrettyJson(PrettyJsonIndent::Spaces(4)),
 };
 ```
 

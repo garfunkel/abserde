@@ -6,7 +6,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! abserde = "0.4.1"
+//! abserde = "0.5.0"
 //! ```
 //!
 //! # Usage
@@ -65,6 +65,38 @@
 //! 	app: "MyApp".to_string(),
 //! 	location: Location::Auto,
 //! 	format: Format::Json,
+//! };
+//! ```
+//!
+//! For the JSON format, you can pretty-print your config file, using either tabs or spaces:
+//!
+//! ```no_run
+//! # use serde::{Serialize, Deserialize};
+//! #
+//! # use abserde::*;
+//! #
+//! # #[derive(Serialize, Deserialize)]
+//! # struct MyConfig;
+//! #
+//! let my_abserde = Abserde {
+//! 	app: "MyApp".to_string(),
+//! 	location: Location::Auto,
+//! 	format: Format::PrettyJson(PrettyJsonIndent::Tab),
+//! };
+//! ```
+//!
+//! ```no_run
+//! # use serde::{Serialize, Deserialize};
+//! #
+//! # use abserde::*;
+//! #
+//! # #[derive(Serialize, Deserialize)]
+//! # struct MyConfig;
+//! #
+//! let my_abserde = Abserde {
+//! 	app: "MyApp".to_string(),
+//! 	location: Location::Auto,
+//! 	format: Format::PrettyJson(PrettyJsonIndent::Spaces(4)),
 //! };
 //! ```
 //!
@@ -139,8 +171,10 @@
 #![allow(clippy::tabs_in_doc_comments)]
 
 use std::env::var;
+use std::fmt::Display;
 use std::fs::{create_dir_all, remove_dir, remove_file, File};
 use std::path::PathBuf;
+use std::str;
 use std::{error, io, result};
 
 use serde::{de::DeserializeOwned, Serialize};
@@ -152,6 +186,26 @@ pub type Error = Box<dyn error::Error>;
 
 /// Alias for Result type wrapping generic Error type.
 pub type Result<T> = result::Result<T, Error>;
+
+/// JSON pretty print indentation style selection.
+#[derive(Debug, PartialEq, Clone, Default)]
+pub enum PrettyJsonIndent {
+	/// Indent using a tab character.
+	#[default]
+	Tab,
+
+	/// Indent using a given number of space characters.
+	Spaces(usize),
+}
+
+impl Display for PrettyJsonIndent {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			PrettyJsonIndent::Tab => write!(f, "\t"),
+			PrettyJsonIndent::Spaces(n) => write!(f, "{}", " ".repeat(*n)),
+		}
+	}
+}
 
 /// Storage format for app config.
 ///
@@ -165,6 +219,10 @@ pub enum Format {
 	/// JSON format using the serde_json crate.
 	#[cfg(feature = "json")]
 	Json,
+
+	/// JSON pretty-printed format using serde_json crate.
+	#[cfg(feature = "json")]
+	PrettyJson(PrettyJsonIndent),
 
 	/// YAML format using the serde_yaml crate.
 	#[cfg(feature = "yaml")]
@@ -186,7 +244,10 @@ pub enum Format {
 impl Format {
 	/// Return default file name of config file for this format.
 	pub fn default_name(&self) -> String {
-		format!("config.{:?}", self).to_lowercase()
+		match self {
+			Format::PrettyJson(_) => format!("config.{:?}", Format::Json).to_lowercase(),
+			_ => format!("config.{:?}", self).to_lowercase(),
+		}
 	}
 }
 
@@ -295,7 +356,7 @@ where
 
 		Ok(match abserde.format {
 			#[cfg(feature = "json")]
-			Format::Json => {
+			Format::Json | Format::PrettyJson(_) => {
 				let file = File::open(config_path)?;
 
 				serde_json::from_reader(io::BufReader::new(file))?
@@ -340,10 +401,23 @@ where
 
 		create_dir_all(config_dir)?;
 
-		match abserde.format {
+		match &abserde.format {
 			#[cfg(feature = "json")]
 			Format::Json => {
 				serde_json::to_writer(File::create(&config_path)?, self)?;
+			}
+			#[cfg(feature = "json")]
+			Format::PrettyJson(indent) => {
+				use io::Write;
+
+				let mut buf = Vec::new();
+				let indent_string = indent.to_string();
+				let formatter =
+					serde_json::ser::PrettyFormatter::with_indent(indent_string.as_bytes());
+				let mut ser = serde_json::Serializer::with_formatter(&mut buf, formatter);
+				self.serialize(&mut ser).unwrap();
+
+				write!(File::create(&config_path)?, "{}", String::from_utf8(buf)?)?;
 			}
 			#[cfg(feature = "yaml")]
 			Format::Yaml => {
@@ -383,9 +457,9 @@ mod tests {
 	use serial_test::serial;
 	use tempfile::{NamedTempFile, TempDir};
 
-	use crate::{Abserde, Config, Format, Location};
+	use crate::{Abserde, Config, Format, Location, PrettyJsonIndent};
 
-	const APP_NAME: &str = "rust_prefs_test";
+	const APP_NAME: &str = env!("CARGO_PKG_NAME");
 
 	// Test config type for serialisation formats that only accept basic types.
 	#[derive(Serialize, Deserialize, Debug, Default, Dummy, PartialEq)]
@@ -464,6 +538,17 @@ mod tests {
 
 	#[cfg(feature = "json")]
 	#[test]
+	#[serial]
+	fn test_pretty_json_auto() {
+		test_save_load_delete::<TestConfigComplex>(&Abserde {
+			app: APP_NAME.to_string(),
+			location: Location::Auto,
+			format: Format::PrettyJson(PrettyJsonIndent::default()),
+		});
+	}
+
+	#[cfg(feature = "json")]
+	#[test]
 	fn test_json_path() {
 		let tmp_file = NamedTempFile::new().unwrap();
 
@@ -471,6 +556,18 @@ mod tests {
 			app: APP_NAME.to_string(),
 			location: Location::Path(tmp_file.path().into()),
 			format: Format::Json,
+		});
+	}
+
+	#[cfg(feature = "json")]
+	#[test]
+	fn test_pretty_json_path() {
+		let tmp_file = NamedTempFile::new().unwrap();
+
+		test_save_load_delete::<TestConfigComplex>(&Abserde {
+			app: APP_NAME.to_string(),
+			location: Location::Path(tmp_file.path().into()),
+			format: Format::PrettyJson(PrettyJsonIndent::Spaces(4)),
 		});
 	}
 
@@ -487,6 +584,17 @@ mod tests {
 
 	#[cfg(feature = "json")]
 	#[test]
+	#[serial]
+	fn test_pretty_json_file() {
+		test_save_load_delete::<TestConfigComplex>(&Abserde {
+			app: APP_NAME.to_string(),
+			location: Location::File("custom_file.json".into()),
+			format: Format::PrettyJson(PrettyJsonIndent::Spaces(4)),
+		});
+	}
+
+	#[cfg(feature = "json")]
+	#[test]
 	fn test_json_dir() {
 		let tmp_dir = TempDir::new().unwrap();
 
@@ -494,6 +602,18 @@ mod tests {
 			app: APP_NAME.to_string(),
 			location: Location::Dir(tmp_dir.path().into()),
 			format: Format::Json,
+		});
+	}
+
+	#[cfg(feature = "json")]
+	#[test]
+	fn test_pretty_json_dir() {
+		let tmp_dir = TempDir::new().unwrap();
+
+		test_save_load_delete::<TestConfigComplex>(&Abserde {
+			app: APP_NAME.to_string(),
+			location: Location::Dir(tmp_dir.path().into()),
+			format: Format::PrettyJson(PrettyJsonIndent::Spaces(4)),
 		});
 	}
 
