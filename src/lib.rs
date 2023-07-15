@@ -175,14 +175,14 @@ use std::fmt::Display;
 use std::fs::{create_dir_all, remove_dir, remove_file, File};
 use std::path::PathBuf;
 use std::str;
-use std::{error, io, result};
+use std::{io, result};
 
 use serde::{de::DeserializeOwned, Serialize};
 
 const MSG_NO_SYSTEM_CONFIG_DIR: &str = "no system config directory detected";
 
 /// Alias for generic Error type.
-pub type Error = Box<dyn error::Error>;
+pub type Error = anyhow::Error;
 
 /// Alias for Result type wrapping generic Error type.
 pub type Result<T> = result::Result<T, Error>;
